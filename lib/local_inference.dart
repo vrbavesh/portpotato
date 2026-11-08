@@ -51,6 +51,11 @@ class LocalInference {
   Future<void> loadDocument(ImportedModel model) =>
       _channel.invokeMethod<void>('loadDocument', {'uri': model.uri});
 
+  Future<void> loadSelectedModel(ImportedModel model) =>
+      model.uri.startsWith('content://')
+      ? loadDocument(model)
+      : loadModel(model.uri);
+
   Future<bool> configure({
     required int contextWindow,
     required double temperature,

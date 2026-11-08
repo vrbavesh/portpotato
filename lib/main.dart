@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:portpotato/local_inference.dart';
 import 'package:portpotato/chat_store.dart';
+import 'package:portpotato/hugging_face.dart';
+import 'package:portpotato/model_downloads_page.dart';
 
 const _themeChannel = MethodChannel('portpotato/theme');
 
@@ -362,7 +364,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _loadingModel = true);
     try {
       await _configure();
-      await _inference.loadDocument(model);
+      await _inference.loadSelectedModel(model);
       if (!mounted) return;
       setState(() {
         _selectedModel = model;
@@ -472,7 +474,7 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _loadingModel = true);
     try {
       await _configure();
-      await _inference.loadDocument(
+      await _inference.loadSelectedModel(
         ImportedModel(uri: chat.modelUri, name: chat.modelName),
       );
       await _inference.restoreHistory(chat.messages);
@@ -831,6 +833,18 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
   Future<void> _refresh() async {
     try {
       final models = await widget.inference.listImportedModels();
+      try {
+        final downloaded = await ModelDownloads(widget.inference).list();
+        models.addAll(
+          downloaded
+              .where((model) => !model.vision)
+              .map((model) => model.chatModel),
+        );
+      } on MissingPluginException {
+        // Widget previews may not have Android storage.
+      } on StateError {
+        // Imported documents can still be selected if local storage is unavailable.
+      }
       if (mounted) {
         setState(() {
           _models = models;
@@ -853,6 +867,13 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
         });
       }
     } on TypeError {
+      if (mounted) {
+        setState(() {
+          _error = 'Could not read the model list';
+          _busy = false;
+        });
+      }
+    } catch (_) {
       if (mounted) {
         setState(() {
           _error = 'Could not read the model list';
@@ -918,7 +939,26 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
           _busy = false;
         });
       }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Could not read the selected model';
+          _busy = false;
+        });
+      }
     }
+  }
+
+  Future<void> _browse() async {
+    final selected = await Navigator.push<ImportedModel>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ModelDownloadsPage(inference: widget.inference),
+      ),
+    );
+    if (!mounted) return;
+    await _refresh();
+    if (selected != null && mounted) await _choose(selected);
   }
 
   @override
@@ -971,6 +1011,12 @@ class _ModelPickerSheetState extends State<_ModelPickerSheet> {
               onPressed: _busy ? null : _import,
               icon: const Icon(Icons.file_open_outlined),
               label: const Text('Import GGUF'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _browse,
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Find models'),
             ),
           ],
         ),
