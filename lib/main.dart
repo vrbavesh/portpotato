@@ -296,6 +296,7 @@ class _ChatPageState extends State<ChatPage> {
   final _store = ChatStore();
   final _messageController = TextEditingController();
   final List<SavedChat> _chats = [];
+  List<DownloadedModel> _drawerModels = [];
   SavedChat? _activeChat;
   List<ChatMessage> get _messages => _activeChat?.messages ?? <ChatMessage>[];
   ImportedModel? _selectedModel;
@@ -303,6 +304,9 @@ class _ChatPageState extends State<ChatPage> {
   bool _canWriteChats = true;
   bool _loadingModel = false;
   bool _generating = false;
+  bool _modelsExpanded = false;
+  bool _loadingDrawerModels = false;
+  String? _drawerModelsError;
 
   @override
   void initState() {
@@ -580,6 +584,39 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Future<void> _toggleDrawerModels() async {
+    if (_modelsExpanded) {
+      setState(() => _modelsExpanded = false);
+      return;
+    }
+    setState(() {
+      _modelsExpanded = true;
+      _loadingDrawerModels = true;
+      _drawerModelsError = null;
+    });
+    try {
+      final models = await ModelDownloads(_inference).list();
+      if (mounted) setState(() => _drawerModels = models);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _drawerModelsError = 'Could not read downloaded models');
+      }
+    } finally {
+      if (mounted) setState(() => _loadingDrawerModels = false);
+    }
+  }
+
+  Future<void> _selectDrawerModel(DownloadedModel model) async {
+    Navigator.pop(context);
+    try {
+      await _selectModel(model.chatModel);
+    } on PlatformException catch (error) {
+      if (mounted) _showError(error.message ?? 'Could not load model');
+    } on StateError catch (error) {
+      if (mounted) _showError(error.message);
+    }
+  }
+
   Future<void> _importFromDrawer() async {
     Navigator.pop(context);
     if (!mounted) return;
@@ -625,7 +662,90 @@ class _ChatPageState extends State<ChatPage> {
                   label: const Text('New chat'),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 24, right: 12),
+                leading: const Icon(Icons.memory_outlined),
+                title: const Text('Models'),
+                onTap: _generating || _loadingModel ? null : _openDownloads,
+                trailing: IconButton(
+                  tooltip: _modelsExpanded
+                      ? 'Hide downloaded models'
+                      : 'Show downloaded models',
+                  onPressed: _generating || _loadingModel
+                      ? null
+                      : _toggleDrawerModels,
+                  icon: Icon(
+                    _modelsExpanded ? Icons.expand_less : Icons.expand_more,
+                  ),
+                ),
+              ),
+              if (_modelsExpanded) ...[
+                if (_loadingDrawerModels)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: LinearProgressIndicator(),
+                  )
+                else if (_drawerModelsError != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(56, 4, 24, 8),
+                    child: Text(
+                      _drawerModelsError!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  )
+                else if (_drawerModels.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(56, 4, 24, 8),
+                    child: Text('No downloaded models'),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 184),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _drawerModels.length,
+                      itemBuilder: (context, index) {
+                        final model = _drawerModels[index];
+                        return ListTile(
+                          dense: true,
+                          contentPadding: const EdgeInsets.only(
+                            left: 56,
+                            right: 24,
+                          ),
+                          leading: Icon(
+                            model.vision
+                                ? Icons.visibility_outlined
+                                : Icons.memory_outlined,
+                          ),
+                          title: Text(
+                            model.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: model.vision
+                              ? const Text('Image chat unavailable')
+                              : null,
+                          selected: _selectedModel?.uri == model.path,
+                          onTap: model.vision || _loadingModel || _generating
+                              ? null
+                              : () => _selectDrawerModel(model),
+                        );
+                      },
+                    ),
+                  ),
+                ListTile(
+                  contentPadding: const EdgeInsets.only(left: 56, right: 24),
+                  leading: const Icon(Icons.add),
+                  title: const Text('Import GGUF'),
+                  onTap: _generating || _loadingModel
+                      ? null
+                      : _importFromDrawer,
+                ),
+              ],
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
@@ -670,19 +790,6 @@ class _ChatPageState extends State<ChatPage> {
                           );
                         },
                       ),
-              ),
-              const Divider(height: 1),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-                leading: const Icon(Icons.memory_outlined),
-                title: const Text('Models'),
-                onTap: _generating || _loadingModel ? null : _openDownloads,
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.only(left: 56, right: 24),
-                leading: const Icon(Icons.add),
-                title: const Text('Import GGUF'),
-                onTap: _generating || _loadingModel ? null : _importFromDrawer,
               ),
               const Divider(height: 1),
               ListTile(

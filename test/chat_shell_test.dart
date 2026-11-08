@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,11 +14,9 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(chatsChannel, null);
   });
-  testWidgets('drawer Models opens downloads and plus imports GGUF', (
+  testWidgets('drawer Models expands downloads above Chats and imports GGUF', (
     tester,
   ) async {
-    final directory = Directory.systemTemp.createTempSync('portpotato-models-');
-    addTearDown(() => directory.deleteSync(recursive: true));
     const channel = MethodChannel('portpotato/inference');
     final calls = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
@@ -29,7 +25,7 @@ void main() {
       calls.add(call.method);
       switch (call.method) {
         case 'modelsDirectory':
-          return directory.path;
+          throw PlatformException(code: 'STORAGE_ERROR');
         case 'importModel':
           return {'uri': 'content://downloads/new.gguf', 'name': 'new.gguf'};
         case 'configure':
@@ -49,6 +45,10 @@ void main() {
     await tester.pumpWidget(const PortPotatoApp());
     await tester.tap(find.byTooltip('Open chat history'));
     await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Models')).dy,
+      lessThan(tester.getTopLeft(find.text('Chats')).dy),
+    );
     await tester.tap(find.text('Models'));
     await tester.pumpAndSettle();
     expect(find.text('Model downloads'), findsOneWidget);
@@ -57,6 +57,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Open chat history'));
     await tester.pumpAndSettle();
+    expect(find.text('Import GGUF'), findsNothing);
+    await tester.tap(find.byTooltip('Show downloaded models'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not read downloaded models'), findsOneWidget);
+    expect(find.text('Import GGUF'), findsOneWidget);
     await tester.tap(find.text('Import GGUF'));
     await tester.pumpAndSettle();
     expect(calls, containsAllInOrder(['importModel', 'loadDocument']));
