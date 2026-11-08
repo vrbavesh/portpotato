@@ -138,6 +138,32 @@ class _ModelDownloadsPageState extends State<ModelDownloadsPage> {
     }
   }
 
+  Future<void> _confirmDownload(HubVariant variant) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Download model?'),
+        content: Text(
+          '${variant.repository.id}\n${variant.label}\n${_size(variant.totalSize)}'
+          '${variant.vision ? '\nIncludes vision projector' : ''}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Download'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted && _downloader == null) {
+      await _download(variant);
+    }
+  }
+
   String _size(int? bytes) {
     if (bytes == null) return 'Size unknown';
     if (bytes >= 1024 * 1024 * 1024) {
@@ -154,23 +180,26 @@ class _ModelDownloadsPageState extends State<ModelDownloadsPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _query,
-                    decoration: const InputDecoration(
-                      hintText: 'Search Hugging Face models',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
+            child: TextField(
+              controller: _query,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Search Hugging Face models',
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                suffixIcon: IconButton(
+                  tooltip: 'Search models',
                   onPressed: _searching || _downloader != null ? null : _search,
-                  child: const Text('Search'),
+                  icon: const Icon(Icons.search),
                 ),
-              ],
+              ),
             ),
           ),
           if (_downloader != null) ...[
@@ -228,7 +257,7 @@ class _ModelDownloadsPageState extends State<ModelDownloadsPage> {
                     child: Text(
                       _searched
                           ? 'No public GGUF models found.'
-                          : 'Enter a model name and tap Search.',
+                          : 'Enter a model name and tap the search icon.',
                     ),
                   ),
                 for (final repository in _results) ...[
@@ -275,12 +304,13 @@ class _ModelDownloadsPageState extends State<ModelDownloadsPage> {
                                 ? 'Matching vision projector unavailable'
                                 : '${_size(variant.totalSize)}${variant.vision ? ' · includes vision projector' : ''}',
                           ),
-                          trailing: TextButton(
+                          trailing: IconButton(
+                            tooltip: 'Download ${variant.label}',
                             onPressed:
                                 variant.canDownload && _downloader == null
-                                ? () => _download(variant)
+                                ? () => _confirmDownload(variant)
                                 : null,
-                            child: const Text('Download'),
+                            icon: const Icon(Icons.download_outlined),
                           ),
                         ),
                 ],

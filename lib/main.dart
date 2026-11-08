@@ -562,6 +562,40 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Future<void> _openDownloads() async {
+    Navigator.pop(context);
+    final model = await Navigator.push<ImportedModel>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ModelDownloadsPage(inference: _inference),
+      ),
+    );
+    if (model == null || !mounted) return;
+    try {
+      await _selectModel(model);
+    } on PlatformException catch (error) {
+      if (mounted) _showError(error.message ?? 'Could not load model');
+    } on StateError catch (error) {
+      if (mounted) _showError(error.message);
+    }
+  }
+
+  Future<void> _importFromDrawer() async {
+    Navigator.pop(context);
+    if (!mounted) return;
+    setState(() => _loadingModel = true);
+    try {
+      final model = await _inference.importModel();
+      if (model != null && mounted) await _selectModel(model);
+    } on PlatformException catch (error) {
+      if (mounted) _showError(error.message ?? 'Could not import model');
+    } catch (_) {
+      if (mounted) _showError('Could not import model');
+    } finally {
+      if (mounted) setState(() => _loadingModel = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = widget.colors;
@@ -636,6 +670,19 @@ class _ChatPageState extends State<ChatPage> {
                           );
                         },
                       ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                leading: const Icon(Icons.memory_outlined),
+                title: const Text('Models'),
+                onTap: _generating || _loadingModel ? null : _openDownloads,
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.only(left: 56, right: 24),
+                leading: const Icon(Icons.add),
+                title: const Text('Import GGUF'),
+                onTap: _generating || _loadingModel ? null : _importFromDrawer,
               ),
               const Divider(height: 1),
               ListTile(

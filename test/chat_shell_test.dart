@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,53 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(chatsChannel, null);
   });
+  testWidgets('drawer Models opens downloads and plus imports GGUF', (
+    tester,
+  ) async {
+    final directory = Directory.systemTemp.createTempSync('portpotato-models-');
+    addTearDown(() => directory.deleteSync(recursive: true));
+    const channel = MethodChannel('portpotato/inference');
+    final calls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      calls.add(call.method);
+      switch (call.method) {
+        case 'modelsDirectory':
+          return directory.path;
+        case 'importModel':
+          return {'uri': 'content://downloads/new.gguf', 'name': 'new.gguf'};
+        case 'configure':
+          return false;
+        case 'listModels':
+          return <Map<String, String>>[];
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+
+    await tester.pumpWidget(const PortPotatoApp());
+    await tester.tap(find.byTooltip('Open chat history'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Models'));
+    await tester.pumpAndSettle();
+    expect(find.text('Model downloads'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Open chat history'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Import GGUF'));
+    await tester.pumpAndSettle();
+    expect(calls, containsAllInOrder(['importModel', 'loadDocument']));
+    expect(find.text('Ready to chat with new.gguf'), findsOneWidget);
+  });
+
   testWidgets('chat and settings fit a narrow phone', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
