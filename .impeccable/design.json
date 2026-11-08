@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-06T08:22:39Z",
+  "title": "Design System: PortPotato",
+  "extensions": {
+    "colorMeta": {
+      "royal-navy": { "role": "primary", "displayName": "Royal navy", "canonical": "#071226", "tonalRamp": ["#071226", "#0E1C32", "#182A44", "#203451", "#30425E", "#667B9C", "#B9C8E1", "#F5F7FC"] },
+      "paper-white": { "role": "neutral", "displayName": "Paper white", "canonical": "#FAFAF8", "tonalRamp": ["#080808", "#171717", "#303030", "#545454", "#999999", "#D3D3D0", "#E7E7E5", "#FAFAF8"] }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Conversation bubble",
+      "kind": "card",
+      "refersTo": "message",
+      "description": "Flat tonal user bubble with 10 dp corners.",
+      "html": "<div class=\"ds-message\">A private conversation</div>",
+      "css": ".ds-message { background: #203451; color: #F5F7FC; border-radius: 10px; padding: 16px; font: 16px/1.5 Roboto, sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A private midnight desk",
+    "overview": "A quiet royal navy conversation canvas with clear white lettering and flat tonal surfaces.",
+    "keyCharacteristics": ["Royal navy default", "Solid backgrounds", "Flat bottom composer", "Neutral theme alternatives", "Explicit preview states"],
+    "rules": [],
+    "dos": ["Label example content as a preview", "Keep the three themes structurally identical"],
+    "donts": ["Imply inference works before llama.cpp is connected"]
+  }
+}
